@@ -62,8 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
           browserWebcamInterval = setInterval(async () => {
             if (targetVideo.readyState >= 2) {
-              ctx.drawImage(targetVideo, 0, 0, 640, 480);
-              const frameB64 = canvas.toDataURL('image/jpeg', 0.65);
+              const vw = targetVideo.videoWidth || 640;
+              const vh = targetVideo.videoHeight || 480;
+              if (canvas.width !== vw || canvas.height !== vh) {
+                canvas.width = vw;
+                canvas.height = vh;
+              }
+              ctx.drawImage(targetVideo, 0, 0, vw, vh);
+              const frameB64 = canvas.toDataURL('image/jpeg', 0.7);
 
               try {
                 const res = await fetch('/api/process_frame', {

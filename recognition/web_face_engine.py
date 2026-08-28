@@ -88,34 +88,37 @@ class WebFaceEngine:
         return filtered
 
     def detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
-        """Detects faces in frame with multi-stage cascade fallbacks and adaptive thresholds."""
+        """Detects faces in frame with CLAHE contrast enhancement and fine-grained scaleFactor=1.05."""
         if frame is None or frame.size == 0:
             return []
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
-        gray_eq = cv2.equalizeHist(gray)
+        
+        # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) for dark/shadow room lighting
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        gray_clahe = clahe.apply(gray)
 
         faces = []
-        # Try equalized histogram first across all cascades
+        # Stage 1: Fast scan on CLAHE-enhanced image
         for cascade in self.face_cascades:
             detected = cascade.detectMultiScale(
-                gray_eq,
-                scaleFactor=1.08,
-                minNeighbors=3,
-                minSize=(35, 35)
+                gray_clahe,
+                scaleFactor=1.05,
+                minNeighbors=2,
+                minSize=(25, 25)
             )
             if len(detected) > 0:
                 faces = detected
                 break
 
-        # Fallback to raw grayscale if equalized hist missed tilt/shadows
+        # Stage 2: Fallback scan on raw grayscale if CLAHE missed subtle tilt
         if len(faces) == 0:
             for cascade in self.face_cascades:
                 detected = cascade.detectMultiScale(
                     gray,
-                    scaleFactor=1.08,
-                    minNeighbors=3,
-                    minSize=(35, 35)
+                    scaleFactor=1.05,
+                    minNeighbors=2,
+                    minSize=(25, 25)
                 )
                 if len(detected) > 0:
                     faces = detected
