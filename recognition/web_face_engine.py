@@ -19,14 +19,28 @@ MODEL_FILE_PATH = os.path.join("database", "lbph_model.xml")
 
 
 class WebFaceEngine:
-    def __init__(self, confidence_threshold: float = 60.0):
+    def __init__(self, confidence_threshold: float = 50.0):
         self.confidence_threshold = confidence_threshold
         self.last_bbox: Optional[Tuple[int, int, int, int]] = None
         self.alpha = 0.35 # Bounding box smoothing weight
 
-        # Load Frontal Face Cascade
-        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        self.face_cascade = cv2.CascadeClassifier(cascade_path)
+        # Load multiple Haar Cascade classifiers for maximum face detection reliability
+        cascade_files = [
+            'haarcascade_frontalface_default.xml',
+            'haarcascade_frontalface_alt2.xml',
+            'haarcascade_frontalface_alt.xml'
+        ]
+        self.face_cascades: List[cv2.CascadeClassifier] = []
+        for cf in cascade_files:
+            cpath = os.path.join(cv2.data.haarcascades, cf)
+            c = cv2.CascadeClassifier(cpath)
+            if not c.empty():
+                self.face_cascades.append(c)
+                print(f"[WebFaceEngine] Loaded face cascade: {cf}")
+
+        if not self.face_cascades:
+            fallback = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            self.face_cascades.append(fallback)
 
         # Initialize LBPH Face Recognizer
         self.lbph_recognizer = cv2.face.LBPHFaceRecognizer_create(
@@ -48,7 +62,6 @@ class WebFaceEngine:
 
         if bbox:
             (x, y, w, h) = bbox
-            # Add 10% margin padding around face box
             margin_x = int(w * 0.1)
             margin_y = int(h * 0.1)
             h_img, w_img = frame.shape[:2]
@@ -64,32 +77,49 @@ class WebFaceEngine:
         if face_crop.size == 0:
             return None
 
-        # Resize to standard 128x128 resolution
         face_resized = cv2.resize(face_crop, (128, 128))
         if len(face_resized.shape) == 3:
             gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
         else:
             gray = face_resized
 
-        # Lighting equalization + Noise reduction
         gray_eq = cv2.equalizeHist(gray)
         filtered = cv2.bilateralFilter(gray_eq, d=5, sigmaColor=75, sigmaSpace=75)
         return filtered
 
     def detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
-        """Detects faces in frame with scale factor and neighbor filtering."""
+        """Detects faces in frame with multi-stage cascade fallbacks and adaptive thresholds."""
         if frame is None or frame.size == 0:
             return []
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.equalizeHist(gray)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+        gray_eq = cv2.equalizeHist(gray)
 
-        faces = self.face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=4,
-            minSize=(50, 50)
-        )
+        faces = []
+        # Try equalized histogram first across all cascades
+        for cascade in self.face_cascades:
+            detected = cascade.detectMultiScale(
+                gray_eq,
+                scaleFactor=1.08,
+                minNeighbors=3,
+                minSize=(35, 35)
+            )
+            if len(detected) > 0:
+                faces = detected
+                break
+
+        # Fallback to raw grayscale if equalized hist missed tilt/shadows
+        if len(faces) == 0:
+            for cascade in self.face_cascades:
+                detected = cascade.detectMultiScale(
+                    gray,
+                    scaleFactor=1.08,
+                    minNeighbors=3,
+                    minSize=(35, 35)
+                )
+                if len(detected) > 0:
+                    faces = detected
+                    break
 
         result = []
         for (x, y, w, h) in faces:
