@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Access Logs - FaceSecure{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.85rem; font-weight: 800;">📋 Access Audit Logs</h1>
+    <p style="color: var(--text-secondary);">History of all recognized personnel and access attempts</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{{ url_for('export_csv') }}" class="btn btn-secondary">
+      📥 Export CSV
+    </a>
+    <form method="POST" action="{{ url_for('clear_logs') }}" onsubmit="return confirm('Clear all access logs?');">
+      <button type="submit" class="btn btn-danger">
+        🗑️ Clear Logs
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="padding: 0;">
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Person Name</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Confidence</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if logs %}
+          {% for log in logs %}
+            <tr>
+              <td>#{{ log.id }}</td>
+              <td style="font-weight: 700;">{{ log.user_name }}</td>
+              <td>{{ log.date }}</td>
+              <td>{{ log.time }}</td>
+              <td>
+                {% if 'GRANTED' in log.status.upper() %}
+                  <span class="badge badge-success">{{ log.status }}</span>
+                {% else %}
+                  <span class="badge badge-danger">{{ log.status }}</span>
+                {% endif %}
+              </td>
+              <td>{{ log.confidence }}%</td>
+              <td style="color: var(--text-secondary);">{{ log.notes }}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+              No access logs recorded yet.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

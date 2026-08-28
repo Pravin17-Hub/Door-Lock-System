@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FaceSecure{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.85rem; font-weight: 800;">📊 System Control Panel</h1>
+    <p style="color: var(--text-secondary);">Manage registered personnel, hardware lock connections, and camera system</p>
+  </div>
+  <div>
+    <a href="{{ url_for('camera_view') }}" class="btn btn-primary" style="font-size: 1rem;">
+      🎥 Launch Camera Recognition System
+    </a>
+  </div>
+</div>
+
+<!-- System Status Cards -->
+<div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+  <div class="card" style="margin-bottom: 0;">
+    <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 700;">CAMERA STATUS</div>
+    <div style="font-size: 1.25rem; font-weight: 800; margin: 0.25rem 0; color: var(--success);">
+      Standby (Camera Off) 🟢
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 0;">
+    <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 700;">BROWSER WEBSERIAL (USB)</div>
+    <div id="webserial-status-badge" style="font-size: 1.25rem; font-weight: 800; margin: 0.25rem 0; color: var(--danger);">
+      Disconnected 🔴
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 0;">
+    <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 700;">ESP32 MOTOR CONTROLLER</div>
+    <div id="dashboard-esp32-status" style="font-size: 1.25rem; font-weight: 800; margin: 0.25rem 0; color: {% if esp32_connected %}var(--success){% else %}var(--danger){% endif %};">
+      {% if esp32_connected %}
+        Connected ({{ esp32_port }}) 🟢
+      {% else %}
+        Disconnected 🔴
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 0;">
+    <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 700;">REGISTERED PERSONS</div>
+    <div style="font-size: 1.25rem; font-weight: 800; margin: 0.25rem 0; color: var(--primary);">
+      {{ persons|length }} Authorized People
+    </div>
+  </div>
+</div>
+
+<br>
+
+<!-- 10-Second Live Camera Enrollment Screen -->
+<div class="card">
+  <h3 class="card-title">📸 10-Second Live Camera Enrollment (20 Face Photos)</h3>
+  <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.25rem;">
+    Enter the person's full name and click start. The camera screen will open for 10 seconds and automatically capture 20 face photos into <code>face_data/&lt;PersonName&gt;/</code>.
+  </p>
+
+  <div class="form-group">
+    <label class="form-label">Person Full Name</label>
+    <input type="text" id="live-enroll-name" class="form-input" placeholder="e.g. Pravin Kumar" required>
+  </div>
+
+  <!-- Live Camera Enrollment Viewport & Timer Countdown -->
+  <div id="enroll-cam-container" style="display: none; margin-bottom: 1.25rem;">
+    <div style="background: #000; border-radius: var(--radius); overflow: hidden; position: relative; max-width: 500px; margin: 0 auto; height: 320px;">
+      <img id="enroll-cam-img" src="" data-src="{{ url_for('video_feed') }}" style="width: 100%; height: 100%; object-fit: cover;" alt="Enrollment Camera Stream">
+      <div id="enroll-timer-overlay" style="position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.85); color: #fff; padding: 0.4rem 0.85rem; border-radius: 20px; font-weight: 800; font-size: 0.9rem;">
+        ⏱️ Time Left: 10s
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Enrollment Progress Display -->
+  <div id="enroll-progress-box" style="display: none; margin-bottom: 1.25rem;">
+    <div id="enroll-status-text" style="font-weight: 700; font-size: 0.95rem; color: var(--primary); margin-bottom: 0.5rem; text-align: center;">
+      Capturing 20 face photos in 10 seconds...
+    </div>
+    <div style="background: var(--bg-card-alt); border-radius: 20px; overflow: hidden; height: 14px; border: 1px solid var(--border);">
+      <div id="enroll-progress-bar" style="background: var(--primary); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+    </div>
+  </div>
+
+  <button id="btn-start-enroll" type="button" class="btn btn-primary" style="width: 100%; font-size: 1rem; padding: 0.75rem;">
+    📸 Start 10-Second Live Camera Enrollment (20 Photos)
+  </button>
+</div>
+
+<!-- Option 1: Browser WebSerial USB Connection Card -->
+<div class="card" style="border: 2px solid var(--primary); background: rgba(0, 119, 182, 0.05);">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+    <h3 class="card-title" style="margin-bottom: 0; color: var(--primary);">🌐 Direct Browser USB Hardware Connection (WebSerial API)</h3>
+    <div style="display: flex; gap: 0.5rem;">
+      <button id="btn-test-webserial" type="button" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; color: var(--success); border-color: var(--success);">
+        🧪 Test WebSerial Motor (Unlock 5s)
+      </button>
+    </div>
+  </div>
+
+  <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+    Plug your ESP32 into your device via USB. Click <b>Connect Browser USB</b> to allow Google Chrome / Edge to control the door lock motor directly from the web URL without installing any local backend software!
+  </p>
+
+  <div style="display: flex; gap: 1rem; align-items: center;">
+    <button id="btn-connect-webserial" type="button" class="btn btn-primary" style="font-size: 1rem; padding: 0.6rem 1.25rem;">
+      ⚡ Connect Browser USB (WebSerial)
+    </button>
+    <button id="btn-disconnect-webserial" type="button" class="btn btn-danger" style="font-size: 0.9rem; padding: 0.6rem 1rem; display: none;">
+      🔌 Disconnect Browser USB
+    </button>
+    <div id="webserial-msg" style="font-weight: 700; font-size: 0.9rem; color: var(--text-secondary);">
+      Browser USB: Ready to connect
+    </div>
+  </div>
+</div>
+
+<!-- Real ESP32 Hardware Control Card -->
+<div class="card">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+    <h3 class="card-title" style="margin-bottom: 0;">🔌 Real ESP32 Motor Hardware Connection</h3>
+    <div style="display: flex; gap: 0.5rem;">
+      <button id="btn-test-unlock" type="button" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; color: var(--success); border-color: var(--success);">
+        🧪 Test Motor Rotation (Unlock 5s)
+      </button>
+      <button id="btn-refresh-ports" type="button" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">
+        🔄 Refresh COM Ports
+      </button>
+    </div>
+  </div>
+
+  <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+    Select your physical USB COM port (e.g. <b>COM7</b>) and click Connect ESP32.
+  </p>
+
+  <div style="display: flex; gap: 1rem; align-items: flex-end;">
+    <div style="flex: 1;">
+      <label class="form-label">Select Physical USB COM Port</label>
+      <select id="select-com-port" class="form-input">
+        <option value="COM7">COM7 (CP2102 ESP32 Board)</option>
+        <option value="AUTO">Auto-Detect USB Hardware</option>
+        {% for device, label in available_ports %}
+          {% if device != "COM7" %}
+            <option value="{{ device }}">{{ label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+
+    <button id="btn-connect-esp32" type="button" class="btn btn-secondary" style="height: 42px;">
+      ⚡ Connect ESP32
+    </button>
+    <button id="btn-disconnect-esp32" type="button" class="btn btn-danger" style="height: 42px;">
+      🔌 Disconnect
+    </button>
+  </div>
+
+  <div id="esp32-diagnostic-msg" style="margin-top: 0.85rem; font-size: 0.85rem; color: var(--text-secondary);">
+    💡 <i>Tip: Connect COM7 above. Ensure your Servo Motor Signal wire (Yellow/Orange) is connected to GPIO 18, Red to 5V/VIN, and Black/Brown to GND.</i>
+  </div>
+</div>
+
+<!-- Authorized Personnel Directory List -->
+<div class="card">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+    <div>
+      <h3 class="card-title" style="margin-bottom: 0.25rem;">👥 Authorized Personnel Directory</h3>
+      <p style="color: var(--text-secondary); font-size: 0.9rem;">
+        Only individuals listed below will be granted door access when recognized by the camera.
+      </p>
+    </div>
+    {% if persons %}
+      <form method="POST" action="{{ url_for('purge_persons') }}" onsubmit="return confirm('WARNING: Are you sure you want to delete ALL personnel records and face_data images? Door access will be revoked for everyone.');">
+        <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger); font-size: 0.85rem;">
+          🔥 Purge All Records & Images
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if persons %}
+    {% for person in persons %}
+      <div class="person-card">
+        <div class="person-info">
+          {% if person.photo_path %}
+            <img src="{{ url_for('static', filename=person.photo_path.replace('static/', '').replace('face_data/', '../../face_data/')) }}" class="person-avatar" alt="{{ person.name }}">
+          {% else %}
+            <div class="person-avatar" style="display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">👤</div>
+          {% endif %}
+          <div>
+            <div style="font-weight: 700; font-size: 1.05rem;">{{ person.name }}</div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+              Images Saved: <b>{{ person.photo_count }} Photos</b> (in <code>face_data/{{ person.name.replace(' ', '_') }}/</code>) | Registered: {{ person.created_at }}
+            </div>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('delete_person', person_id=person.id) }}" onsubmit="return confirm('Are you sure you want to delete {{ person.name }}? Access will be revoked immediately.');">
+          <button type="submit" class="btn btn-danger" style="font-size: 0.85rem; padding: 0.4rem 0.85rem;">
+            🗑️ Delete Person Record
+          </button>
+        </form>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+      No authorized personnel registered yet. Enter a name above and click Start 10-Second Camera Enrollment.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

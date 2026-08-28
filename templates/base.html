@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}FaceSecure Access Control{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar">
+    <a href="{{ url_for('dashboard') }}" class="brand">
+      <span class="brand-logo">🛡️</span>
+      <div>
+        <div class="brand-title">FaceSecure</div>
+        <div class="brand-sub">DoorCam Access Control System</div>
+      </div>
+    </a>
+
+    <ul class="nav-links">
+      {% if session.get('admin_id') %}
+        <li><a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">📊 Dashboard</a></li>
+        <li><a href="{{ url_for('camera_view') }}" class="nav-link {% if request.endpoint == 'camera_view' %}active{% endif %}">🎥 Camera System</a></li>
+        <li><a href="{{ url_for('logs_view') }}" class="nav-link {% if request.endpoint == 'logs_view' %}active{% endif %}">📋 Access Logs</a></li>
+        <li><a href="{{ url_for('logout') }}" class="nav-link nav-btn">🚪 Logout</a></li>
+      {% else %}
+        <li><a href="{{ url_for('login') }}" class="nav-link {% if request.endpoint == 'login' %}active{% endif %}">🔑 Login</a></li>
+        <li><a href="{{ url_for('register') }}" class="nav-link nav-btn">📝 Sign Up</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  <!-- Main Body Content -->
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <footer>
+    &copy; 2026 FaceSecure Web Suite | ESP32 Motor Access Control System
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

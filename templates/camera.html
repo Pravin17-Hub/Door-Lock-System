@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Camera Recognition - FaceSecure{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.85rem; font-weight: 800;">🎥 Live Face Recognition System</h1>
+    <p style="color: var(--text-secondary);">Real-time camera feed. Automatically grants 5-second door access for registered personnel.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline">
+      ⬅️ Back to Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="camera-layout">
+  <!-- Live Camera Video Viewport -->
+  <div class="card" style="padding: 0.75rem;">
+    <div class="video-container">
+      <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Live Camera Stream">
+    </div>
+  </div>
+
+  <!-- Live Status & Verification Banner Panel -->
+  <div>
+    <!-- Dynamic Status Banner -->
+    <div id="banner-card" class="banner-card">
+      <div id="banner-status" class="banner-status">SCANNING...</div>
+      <div id="banner-name" class="banner-name">No Face Detected</div>
+      <div id="banner-conf" class="banner-conf">Confidence: --</div>
+    </div>
+
+    <br>
+
+    <!-- Door Hardware State Card -->
+    <div class="card">
+      <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">🚪 Door Mechanism Status:</h4>
+      <div id="door-state-lbl" class="badge badge-warning" style="font-size: 1rem; padding: 0.5rem 1rem;">
+        Door Closed 🔒
+      </div>
+    </div>
+
+    <!-- Arduino / ESP32 Log Card -->
+    <div class="card">
+      <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">🔌 ESP32 Motor Command Activity:</h4>
+      <div id="cmd-log-lbl" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.5rem;">
+        Ready (Idle)
+      </div>
+      <div style="border-top: 1px solid var(--border); pt-2; margin-top: 0.5rem; padding-top: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+        <span id="camera-webserial-badge" style="font-size: 0.8rem; font-weight: 700; color: var(--danger);">WebSerial: Off 🔴</span>
+        <button id="btn-camera-connect-webserial" type="button" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+          ⚡ Connect USB
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

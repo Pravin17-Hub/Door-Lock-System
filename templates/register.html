@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - FaceSecure{% endblock %}
+
+{% block content %}
+<div class="auth-box card">
+  <div class="auth-header">
+    <div style="font-size: 3rem; margin-bottom: 0.5rem;">🛡️</div>
+    <h2 class="auth-title">Create Admin Account</h2>
+    <p style="color: var(--text-secondary);">Register your email & password to access the FaceSecure system</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('register') }}">
+    <div class="form-group">
+      <label class="form-label">Admin Email Address</label>
+      <input type="email" name="email" class="form-input" placeholder="admin@facesecure.com" required autofocus>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-input" placeholder="••••••••" required>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Confirm Password</label>
+      <input type="password" name="confirm_password" class="form-input" placeholder="••••••••" required>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">
+      ✨ Create Account & Proceed
+    </button>
+  </form>
+
+  <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+    Already have an account? <a href="{{ url_for('login') }}" style="color: var(--primary); font-weight: 600;">Log In</a>
+  </div>
+</div>
+{% endblock %}

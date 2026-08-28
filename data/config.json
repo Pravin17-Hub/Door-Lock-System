@@ -1,0 +1,11 @@
+{
+    "camera_index": 1,
+    "camera_resolution": "640x480",
+    "confidence_threshold": 0.75,
+    "door_unlock_duration": 5,
+    "com_port": "AUTO",
+    "baud_rate": 9600,
+    "theme": "Light",
+    "auto_lock": true,
+    "sound_alerts": true
+}
