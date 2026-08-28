@@ -284,11 +284,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateLiveBanner(data) {
     if (!bannerCard) return;
 
-    if (data.door_is_open) {
+    if (data.status_type === 'GRANTED' || data.door_is_open) {
       bannerCard.className = 'banner-card granted';
       bannerStatus.textContent = 'ACCESS GRANTED 🔓';
       bannerStatus.style.color = 'var(--success)';
-      bannerName.textContent = data.person_name ? `Welcome, ${data.person_name}!` : 'Person Detected';
+      bannerName.textContent = data.person_name ? `Welcome, ${data.person_name}!` : 'Authorized Person Detected';
       bannerConf.textContent = `Match Confidence: ${data.confidence}%`;
       
       if (doorStateLbl) {
