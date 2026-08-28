@@ -20,6 +20,8 @@ import time
 import shutil
 import csv
 import io
+import base64
+import traceback
 import threading
 import cv2
 import numpy as np
