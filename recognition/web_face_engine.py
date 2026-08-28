@@ -24,23 +24,31 @@ class WebFaceEngine:
         self.last_bbox: Optional[Tuple[int, int, int, int]] = None
         self.alpha = 0.35 # Bounding box smoothing weight
 
-        # Load multiple Haar Cascade classifiers for maximum face detection reliability
+        # Load multiple Haar Cascade classifiers from project database/haarcascades/ directory or system OpenCV
         cascade_files = [
             'haarcascade_frontalface_default.xml',
             'haarcascade_frontalface_alt2.xml',
             'haarcascade_frontalface_alt.xml'
         ]
         self.face_cascades: List[cv2.CascadeClassifier] = []
-        for cf in cascade_files:
-            cpath = os.path.join(cv2.data.haarcascades, cf)
-            c = cv2.CascadeClassifier(cpath)
-            if not c.empty():
-                self.face_cascades.append(c)
-                print(f"[WebFaceEngine] Loaded face cascade: {cf}")
 
-        if not self.face_cascades:
-            fallback = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            self.face_cascades.append(fallback)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        repo_cascade_dir = os.path.join(base_dir, "database", "haarcascades")
+
+        for cf in cascade_files:
+            # 1. Try project repo directory first
+            repo_path = os.path.join(repo_cascade_dir, cf)
+            c = cv2.CascadeClassifier()
+            if os.path.exists(repo_path) and c.load(repo_path) and not c.empty():
+                self.face_cascades.append(c)
+                print(f"[WebFaceEngine] Loaded face cascade from repo: {cf}")
+                continue
+
+            # 2. Try OpenCV system data directory fallback
+            sys_path = os.path.join(cv2.data.haarcascades, cf)
+            if os.path.exists(sys_path) and c.load(sys_path) and not c.empty():
+                self.face_cascades.append(c)
+                print(f"[WebFaceEngine] Loaded face cascade from system: {cf}")
 
         # Initialize LBPH Face Recognizer
         self.lbph_recognizer = cv2.face.LBPHFaceRecognizer_create(
@@ -101,6 +109,8 @@ class WebFaceEngine:
         faces = []
         # Stage 1: Fast scan on CLAHE-enhanced image
         for cascade in self.face_cascades:
+            if cascade.empty():
+                continue
             detected = cascade.detectMultiScale(
                 gray_clahe,
                 scaleFactor=1.05,
@@ -114,6 +124,8 @@ class WebFaceEngine:
         # Stage 2: Fallback scan on raw grayscale if CLAHE missed subtle tilt
         if len(faces) == 0:
             for cascade in self.face_cascades:
+                if cascade.empty():
+                    continue
                 detected = cascade.detectMultiScale(
                     gray,
                     scaleFactor=1.05,
