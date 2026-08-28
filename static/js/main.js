@@ -29,9 +29,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // If user is on the Camera Recognition Page (/camera), start camera heartbeat!
+  // --- HTML5 BROWSER WEBCAM STREAMER & AI FRAME PROCESSOR ---
+  let browserWebcamStream = null;
+  let browserWebcamInterval = null;
+
+  async function initBrowserWebcam() {
+    if (!videoFeedElement) return;
+
+    let serverStreamActive = false;
+    videoFeedElement.onload = () => { serverStreamActive = true; };
+
+    setTimeout(async () => {
+      if (!serverStreamActive && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('[FaceSecure] Cloud host detected. Initializing HTML5 Browser Webcam...');
+        try {
+          const videoElem = document.createElement('video');
+          videoElem.autoplay = true;
+          videoElem.playsInline = true;
+          videoElem.muted = true;
+          videoElem.style.display = 'none';
+          document.body.appendChild(videoElem);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+
+          browserWebcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+          });
+          videoElem.srcObject = browserWebcamStream;
+
+          browserWebcamInterval = setInterval(async () => {
+            if (videoElem.readyState >= 2) {
+              ctx.drawImage(videoElem, 0, 0, 640, 480);
+              const frameB64 = canvas.toDataURL('image/jpeg', 0.7);
+
+              try {
+                const res = await fetch('/api/process_frame', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ image: frameB64 })
+                });
+
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.annotated_image) {
+                    videoFeedElement.src = data.annotated_image;
+                  }
+                  updateLiveBanner(data);
+                }
+              } catch (err) {
+                console.error('Frame process error:', err);
+              }
+            }
+          }, 300);
+
+        } catch (camErr) {
+          console.error('HTML5 Webcam Error:', camErr);
+          if (bannerStatus) {
+            bannerStatus.textContent = 'CAMERA PERMISSION REQUIRED 📷';
+            bannerStatus.style.color = 'var(--danger)';
+          }
+          if (bannerName) {
+            bannerName.textContent = 'Please allow browser camera permission in site settings.';
+          }
+        }
+      }
+    }, 1500);
+  }
+
+  // If user is on the Camera Recognition Page (/camera), start camera heartbeat & browser webcam!
   if (videoFeedElement) {
     startCameraHeartbeat();
+    initBrowserWebcam();
   }
 
   // --- OPTION 1: BROWSER WEBSERIAL API MOTOR CONTROLLER ---

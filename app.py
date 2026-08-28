@@ -576,6 +576,84 @@ def gen_frames():
         camera_mgr.stop_camera()
 
 
+@app.route("/api/process_frame", methods=["POST"])
+def api_process_frame():
+    """Receives base64 image frame from client browser webcam, runs LBPH Face AI, and returns annotated frame & access status."""
+    data = request.json or {}
+    image_b64 = data.get("image", "")
+    if not image_b64:
+        return jsonify({"success": False, "error": "No image data received"}), 400
+
+    try:
+        if "," in image_b64:
+            image_b64 = image_b64.split(",")[1]
+
+        image_bytes = base64.b64decode(image_b64)
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"success": False, "error": "Failed to decode frame"}), 400
+
+        now = time.time()
+        faces = face_engine.detect_faces(frame)
+
+        if not faces:
+            if not app_state["door_is_open"]:
+                app_state["status_type"] = "SCANNING"
+                app_state["person_name"] = ""
+                app_state["confidence"] = 0.0
+        else:
+            for (x, y, w, h) in faces:
+                name, conf = face_engine.predict_face(frame, (x, y, w, h))
+
+                if name == "Unknown" and not face_engine.is_trained:
+                    known_encs = db.get_all_encodings()
+                    cand_enc = face_engine.generate_encoding(frame, (x, y, w, h))
+                    name, conf = face_engine.compare_encodings(cand_enc, known_encs, threshold=0.60)
+
+                is_auth = (name != "Unknown")
+                frame = face_engine.annotate_frame(frame, (x, y, w, h), name, conf, is_auth)
+
+                if is_auth:
+                    if not app_state["door_is_open"] and (now - app_state["last_trigger_time"] > 6.0):
+                        app_state["last_trigger_time"] = now
+                        app_state["door_is_open"] = True
+                        app_state["scan_paused"] = True
+                        app_state["status_type"] = "GRANTED"
+                        app_state["person_name"] = name
+                        app_state["confidence"] = conf
+                        app_state["seconds_remaining"] = app.config["DOOR_UNLOCK_DURATION"]
+                        esp32.send_command("UNLOCK")
+                        db.log_access(name, "ACCESS GRANTED", conf, "Door Opened via WebCam")
+                        break
+                else:
+                    app_state["status_type"] = "DENIED"
+                    app_state["person_name"] = "Unknown"
+                    app_state["confidence"] = conf
+                    if now - app_state["last_trigger_time"] > 6.0:
+                        app_state["last_trigger_time"] = now
+                        esp32.send_command("ALARM")
+                        db.log_access("Unknown", "ACCESS DENIED", conf, "Face Not Matched")
+
+        ret, buf = cv2.imencode('.jpg', frame)
+        annotated_b64 = "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8')
+
+        return jsonify({
+            "success": True,
+            "status_type": app_state["status_type"],
+            "person_name": app_state["person_name"],
+            "confidence": app_state["confidence"],
+            "door_is_open": app_state["door_is_open"],
+            "seconds_remaining": app_state["seconds_remaining"],
+            "annotated_image": annotated_b64
+        })
+
+    except Exception as e:
+        print(f"[api_process_frame] Error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/video_feed")
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
