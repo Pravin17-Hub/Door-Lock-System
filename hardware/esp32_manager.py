@@ -78,10 +78,10 @@ class ESP32Manager:
                 err_str = str(se)
                 if "PermissionError" in err_str or "Access denied" in err_str:
                     msg = f"Port {selected_port} is busy! Close Arduino IDE Serial Monitor and try again."
-                elif "FileNotFoundError" in err_str or "cannot find" in err_str.lower():
-                    msg = f"Port {selected_port} not found. Check USB cable connection."
+                elif "FileNotFoundError" in err_str or "cannot find" in err_str.lower() or "could not open port" in err_str.lower():
+                    msg = f"Port {selected_port} not found on cloud server. Click '⚡ Connect Browser USB (WebSerial)' above to connect your local ESP32!"
                 else:
-                    msg = f"Serial error on {selected_port}: {err_str}"
+                    msg = f"Serial error on {selected_port}: {err_str}. Click '⚡ Connect Browser USB (WebSerial)' above to connect your local ESP32!"
                 
                 self.is_connected = False
                 self.connected_port = ""
