@@ -37,19 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!videoFeedElement) return;
 
     const isCloudHost = !['127.0.0.1', 'localhost'].includes(window.location.hostname);
+    const liveVideoFeed = document.getElementById('live-webcam-feed');
     
-    // On cloud hosts or when src is empty, start HTML5 webcam streaming immediately!
     if (isCloudHost || !videoFeedElement.src || videoFeedElement.src.endsWith('/camera')) {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         console.log('[FaceSecure] Cloud host / Browser webcam mode active.');
         try {
-          const videoElem = document.createElement('video');
-          videoElem.autoplay = true;
-          videoElem.playsInline = true;
-          videoElem.muted = true;
-          videoElem.style.display = 'none';
-          document.body.appendChild(videoElem);
-
           const canvas = document.createElement('canvas');
           canvas.width = 640;
           canvas.height = 480;
@@ -58,11 +51,18 @@ document.addEventListener('DOMContentLoaded', () => {
           browserWebcamStream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
           });
-          videoElem.srcObject = browserWebcamStream;
+
+          if (liveVideoFeed) {
+            liveVideoFeed.srcObject = browserWebcamStream;
+            liveVideoFeed.style.display = 'block';
+            await liveVideoFeed.play().catch(() => {});
+          }
+
+          const targetVideo = liveVideoFeed || document.createElement('video');
 
           browserWebcamInterval = setInterval(async () => {
-            if (videoElem.readyState >= 2) {
-              ctx.drawImage(videoElem, 0, 0, 640, 480);
+            if (targetVideo.readyState >= 2) {
+              ctx.drawImage(targetVideo, 0, 0, 640, 480);
               const frameB64 = canvas.toDataURL('image/jpeg', 0.65);
 
               try {
@@ -74,8 +74,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (res.ok) {
                   const data = await res.json();
-                  if (data.annotated_image) {
+                  if (data.annotated_image && data.status_type !== 'SCANNING') {
                     videoFeedElement.src = data.annotated_image;
+                    videoFeedElement.style.display = 'block';
+                  } else {
+                    videoFeedElement.style.display = 'none';
                   }
                   updateLiveBanner(data);
                 }
@@ -92,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bannerStatus.style.color = 'var(--danger)';
           }
           if (bannerName) {
-            bannerName.textContent = 'Please allow camera permissions in your browser address bar.';
+            bannerName.textContent = 'Please click the camera icon in your browser address bar and allow permission.';
           }
         }
       }

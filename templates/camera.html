@@ -18,8 +18,9 @@
 <div class="camera-layout">
   <!-- Live Camera Video Viewport -->
   <div class="card" style="padding: 0.75rem;">
-    <div class="video-container">
-      <img id="camera-feed-img" src="{% if 'localhost' in request.host or '127.0.0.1' in request.host %}{{ url_for('video_feed') }}{% endif %}" class="video-feed" alt="Live Camera Stream">
+    <div class="video-container" style="position: relative;">
+      <video id="live-webcam-feed" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); border-radius: var(--radius); display: block;"></video>
+      <img id="camera-feed-img" src="{% if 'localhost' in request.host or '127.0.0.1' in request.host %}{{ url_for('video_feed') }}{% endif %}" class="video-feed" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; display: none;" alt="Live Camera Stream">
     </div>
   </div>
 
