@@ -68,6 +68,15 @@ document.addEventListener('DOMContentLoaded', () => {
         cameraWebserialBadge.style.color = 'var(--danger)';
       }
     }
+    if (dashboardEsp32Status) {
+      if (connected) {
+        dashboardEsp32Status.textContent = 'Connected (WebSerial USB) 🟢';
+        dashboardEsp32Status.style.color = 'var(--success)';
+      } else {
+        dashboardEsp32Status.textContent = 'Disconnected 🔴';
+        dashboardEsp32Status.style.color = 'var(--danger)';
+      }
+    }
     if (btnConnectWebserial && btnDisconnectWebserial) {
       btnConnectWebserial.style.display = connected ? 'none' : 'inline-block';
       btnDisconnectWebserial.style.display = connected ? 'inline-block' : 'none';
@@ -168,7 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update ESP32 hardware status badge on dashboard
         if (dashboardEsp32Status) {
-          if (data.esp32_connected) {
+          if (webSerialIsConnected) {
+            dashboardEsp32Status.textContent = 'Connected (WebSerial USB) 🟢';
+            dashboardEsp32Status.style.color = 'var(--success)';
+          } else if (data.esp32_connected) {
             dashboardEsp32Status.textContent = `Connected (${data.esp32_port}) 🟢`;
             dashboardEsp32Status.style.color = 'var(--success)';
           } else {
