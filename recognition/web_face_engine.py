@@ -199,7 +199,13 @@ class WebFaceEngine:
                 img_path = os.path.join(folder_path, img_name)
                 img = cv2.imread(img_path)
                 if img is not None:
-                    proc = self.preprocess_face(img)
+                    detected = self.detect_faces(img)
+                    if len(detected) > 0:
+                        best_face = max(detected, key=lambda b: b[2] * b[3])
+                        proc = self.preprocess_face(img, best_face)
+                    else:
+                        proc = self.preprocess_face(img)
+
                     if proc is not None:
                         faces.append(proc)
                         labels.append(current_id)
@@ -221,7 +227,7 @@ class WebFaceEngine:
                 pickle.dump(self.label_to_name, f)
 
             self.is_trained = True
-            print(f"[WebFaceEngine] High-Accuracy LBPH Model Trained Successfully! ({len(faces)} photos across {len(self.label_to_name)} persons)")
+            print(f"[WebFaceEngine] High-Accuracy LBPH Model Trained Successfully! ({len(faces)} face crops across {len(self.label_to_name)} persons)")
             return True
         except Exception as e:
             print(f"[WebFaceEngine] Model training error: {e}")
@@ -255,11 +261,10 @@ class WebFaceEngine:
         try:
             label, distance = self.lbph_recognizer.predict(proc_face)
             
-            # LBPH distance: lower distance = higher match. 0 is exact match, 100+ is unknown.
-            # Convert LBPH distance (0 - 100) into Confidence % (100% - 0%)
-            confidence = max(0.0, min(100.0, 100.0 - (distance * 0.75)))
+            # LBPH distance: 0 is exact match, <= 85.0 is valid match, > 85.0 is unknown
+            confidence = max(0.0, min(100.0, 100.0 - (distance * 0.65)))
 
-            if label in self.label_to_name and confidence >= self.confidence_threshold:
+            if label in self.label_to_name and distance <= 85.0:
                 person_name = self.label_to_name[label]
                 return person_name, round(confidence, 1)
             else:
