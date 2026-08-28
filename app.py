@@ -604,13 +604,19 @@ def api_process_frame():
                 app_state["person_name"] = ""
                 app_state["confidence"] = 0.0
         else:
-            for (x, y, w, h) in faces:
+            for bbox in faces:
+                x, y, w, h = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
                 name, conf = face_engine.predict_face(frame, (x, y, w, h))
+                conf = float(conf)
 
                 if name == "Unknown" and not face_engine.is_trained:
-                    known_encs = db.get_all_encodings()
-                    cand_enc = face_engine.generate_encoding(frame, (x, y, w, h))
-                    name, conf = face_engine.compare_encodings(cand_enc, known_encs, threshold=0.60)
+                    try:
+                        known_encs = db.get_all_encodings()
+                        cand_enc = face_engine.generate_encoding(frame, (x, y, w, h))
+                        name, conf = face_engine.compare_encodings(cand_enc, known_encs, threshold=0.60)
+                        conf = float(conf)
+                    except Exception:
+                        pass
 
                 is_auth = (name != "Unknown")
                 frame = face_engine.annotate_frame(frame, (x, y, w, h), name, conf, is_auth)
@@ -621,11 +627,17 @@ def api_process_frame():
                         app_state["door_is_open"] = True
                         app_state["scan_paused"] = True
                         app_state["status_type"] = "GRANTED"
-                        app_state["person_name"] = name
+                        app_state["person_name"] = str(name)
                         app_state["confidence"] = conf
                         app_state["seconds_remaining"] = app.config["DOOR_UNLOCK_DURATION"]
-                        esp32.send_command("UNLOCK")
-                        db.log_access(name, "ACCESS GRANTED", conf, "Door Opened via WebCam")
+                        try:
+                            esp32.send_command("UNLOCK")
+                        except Exception:
+                            pass
+                        try:
+                            db.log_access(name, "ACCESS GRANTED", conf, "Door Opened via WebCam")
+                        except Exception:
+                            pass
                         break
                 else:
                     app_state["status_type"] = "DENIED"
@@ -633,25 +645,32 @@ def api_process_frame():
                     app_state["confidence"] = conf
                     if now - app_state["last_trigger_time"] > 6.0:
                         app_state["last_trigger_time"] = now
-                        esp32.send_command("ALARM")
-                        db.log_access("Unknown", "ACCESS DENIED", conf, "Face Not Matched")
+                        try:
+                            esp32.send_command("ALARM")
+                        except Exception:
+                            pass
+                        try:
+                            db.log_access("Unknown", "ACCESS DENIED", conf, "Face Not Matched")
+                        except Exception:
+                            pass
 
         ret, buf = cv2.imencode('.jpg', frame)
         annotated_b64 = "data:image/jpeg;base64," + base64.b64encode(buf).decode('utf-8')
 
         return jsonify({
             "success": True,
-            "status_type": app_state["status_type"],
-            "person_name": app_state["person_name"],
-            "confidence": app_state["confidence"],
-            "door_is_open": app_state["door_is_open"],
-            "seconds_remaining": app_state["seconds_remaining"],
+            "status_type": str(app_state["status_type"]),
+            "person_name": str(app_state["person_name"]),
+            "confidence": float(app_state["confidence"]),
+            "door_is_open": bool(app_state["door_is_open"]),
+            "seconds_remaining": int(app_state["seconds_remaining"]),
             "annotated_image": annotated_b64
         })
 
     except Exception as e:
-        print(f"[api_process_frame] Error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"[api_process_frame] Uncaught Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 200
 
 
 @app.route("/video_feed")
