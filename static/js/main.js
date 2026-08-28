@@ -36,12 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function initBrowserWebcam() {
     if (!videoFeedElement) return;
 
-    let serverStreamActive = false;
-    videoFeedElement.onload = () => { serverStreamActive = true; };
-
-    setTimeout(async () => {
-      if (!serverStreamActive && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        console.log('[FaceSecure] Cloud host detected. Initializing HTML5 Browser Webcam...');
+    const isCloudHost = !['127.0.0.1', 'localhost'].includes(window.location.hostname);
+    
+    // On cloud hosts or when src is empty, start HTML5 webcam streaming immediately!
+    if (isCloudHost || !videoFeedElement.src || videoFeedElement.src.endsWith('/camera')) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('[FaceSecure] Cloud host / Browser webcam mode active.');
         try {
           const videoElem = document.createElement('video');
           videoElem.autoplay = true;
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
           browserWebcamInterval = setInterval(async () => {
             if (videoElem.readyState >= 2) {
               ctx.drawImage(videoElem, 0, 0, 640, 480);
-              const frameB64 = canvas.toDataURL('image/jpeg', 0.7);
+              const frameB64 = canvas.toDataURL('image/jpeg', 0.65);
 
               try {
                 const res = await fetch('/api/process_frame', {
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Frame process error:', err);
               }
             }
-          }, 300);
+          }, 250);
 
         } catch (camErr) {
           console.error('HTML5 Webcam Error:', camErr);
@@ -92,11 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
             bannerStatus.style.color = 'var(--danger)';
           }
           if (bannerName) {
-            bannerName.textContent = 'Please allow browser camera permission in site settings.';
+            bannerName.textContent = 'Please allow camera permissions in your browser address bar.';
           }
         }
       }
-    }, 1500);
+    }
   }
 
   // If user is on the Camera Recognition Page (/camera), start camera heartbeat & browser webcam!

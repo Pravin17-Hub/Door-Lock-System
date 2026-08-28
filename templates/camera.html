@@ -19,7 +19,7 @@
   <!-- Live Camera Video Viewport -->
   <div class="card" style="padding: 0.75rem;">
     <div class="video-container">
-      <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Live Camera Stream">
+      <img id="camera-feed-img" src="{% if 'localhost' in request.host or '127.0.0.1' in request.host %}{{ url_for('video_feed') }}{% endif %}" class="video-feed" alt="Live Camera Stream">
     </div>
   </div>
 
